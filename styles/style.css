@@ -1,0 +1,44 @@
+body {
+  background: radial-gradient(circle at top left, #141e30, #243b55);
+}
+
+.pad {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 500;
+  font-size: 1rem;
+  color: #fff;
+  user-select: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 2px solid transparent;
+}
+
+.pad:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-4px);
+}
+
+.pad:active {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 25px rgba(255,255,255,0.3);
+}
+
+/* Accent colors */
+.kick { border-color: #ff4b2b; }
+.clap { border-color: #ffaf00; }
+.hihat { border-color: #00b4d8; }
+.synth { border-color: #9d4edd; }
+
+/* Fix Bootstrap grid to fit 8 per row on large screens */
+@media (min-width: 992px) {
+  .col-lg-1-5 {
+    flex: 0 0 auto;
+    width: 12.5%; /* 100 / 8 = 12.5% */
+  }
+}
