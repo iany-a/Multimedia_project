@@ -124,10 +124,12 @@ function playOneShot(category, index) {
   src.start();
 
   // Track this source (cleanup after it ends)
-  if (!activeSources.has(key)) {
-    activeSources.set(key, new Set());
-  }
-  activeSources.get(key).add(src);
+  const duration = buffer.duration * 1000; // Convert to ms
+  setTimeout(() => {
+    const pad = document.querySelector(`[data-category="${category}"][data-index="${index}"]`);
+    if (pad) pad.classList.remove('playing');
+  }, Math.min(duration, 300)); // Cap at 300ms max for visual feedback
+  
   
   // Cleanup when source ends
   src.onended = () => {
