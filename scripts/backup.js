@@ -16,13 +16,21 @@ let bpm = 130;
 
 // Sample paths
 const samplePaths = {
-  kick: ['kick1.wav', 'kick2.wav', 'kick3.wav', 'kick4.wav', 'kick5.wav', 'kick6.wav', 'kick7.wav', 'kick8.wav'],
-  hihat: ['hihat1.wav', 'hihat2.wav', 'hihat3.wav', 'hihat4.wav', 'hihat5.wav', 'hihat6.wav', 'hihat7.wav', 'hihat8.wav'],
-  synth: ['stab1.wav', 'stab2.wav', 'stab3.wav', 'stab4.wav', 'stab5.wav', 'stab6.wav', 'stab7.wav', 'stab8.wav'],
-  clap: ['clap1.wav', 'clap2.wav', 'clap3.wav', 'clap4.wav', 'clap5.wav', 'clap6.wav', 'clap7.wav', 'clap8.wav']
+  kick: ['kick1.wav','kick2.wav','kick3.wav','kick4.wav','kick5.wav','kick6.wav','kick7.wav','kick8.wav'],
+  hihat: ['hihat1.wav','hihat2.wav','hihat3.wav','hihat4.wav','hihat5.wav','hihat6.wav','hihat7.wav','hihat8.wav'],
+  synth: ['stab1.wav','stab2.wav','stab3.wav','stab4.wav','stab5.wav','stab6.wav','stab7.wav','stab8.wav'],
+  clap: ['clap1.wav','clap2.wav','clap3.wav','clap4.wav','clap5.wav','clap6.wav','clap7.wav','clap8.wav']
 };
 
-
+// Initialize Audio
+function initAudio() {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    loadSamples();
+  } else if (audioContext.state === 'suspended') {
+    audioContext.resume();
+  }
+}
 
 // Load all samples
 async function loadSamples() {
@@ -37,16 +45,6 @@ async function loadSamples() {
         console.error(`Failed to load ${samplePaths[category][i]}:`, error);
       }
     }
-  }
-}
-
-// Initialize Audio
-function initAudio() {
-  if (!audioContext) {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    loadSamples();
-  } else if (audioContext.state === 'suspended') {
-    audioContext.resume();
   }
 }
 
@@ -83,7 +81,7 @@ function startBpmRetrigger(category, index) {
 
     // Stop previous sources and create new one
     stopAllSources(key);
-
+    
     const src = audioContext.createBufferSource();
     src.buffer = buffer;
     src.connect(audioContext.destination);
@@ -131,8 +129,8 @@ function playOneShot(category, index) {
     const pad = document.querySelector(`[data-category="${category}"][data-index="${index}"]`);
     if (pad) pad.classList.remove('playing');
   }, Math.min(duration, 300)); // Cap at 300ms max for visual feedback
-
-
+  
+  
   // Cleanup when source ends
   src.onended = () => {
     activeSources.get(key)?.delete(src);
@@ -145,22 +143,9 @@ function playOneShot(category, index) {
 // Main play handler
 function playSample(category, index, action) {
   if (!audioContext) initAudio();
+
   const key = `${category}-${index}`;
 
-  // NEW: Custom logic for the 3rd row (stabs/synth)
-  if (category === 'synth') {
-    if (action === 'start') {
-      if (pressedPads.has(key)) return; // Prevent key-repeat triggers
-      pressedPads.add(key);
-      playGated(category, index);
-    } else if (action === 'stop') {
-      pressedPads.delete(key);
-      stopAllSources(key); // Stop the sound immediately on release
-    }
-    return;
-  }
-
-  // Original logic for other rows
   if (holdMode) {
     if (action === 'start') {
       if (pressedPads.has(key)) return;
@@ -171,52 +156,14 @@ function playSample(category, index, action) {
       stopBpmRetrigger(key);
     }
   } else {
-    if (action === 'start') playOneShot(category, index);
+    playOneShot(category, index);
   }
-}
-
-function playGated(category, index) {
-  const buffer = samples[category]?.[index];
-  if (!buffer) return;
-
-  const key = `${category}-${index}`;
-  stopAllSources(key); // Clear any previous instance
-
-  const src = audioContext.createBufferSource();
-  src.buffer = buffer;
-  src.connect(audioContext.destination);
-  src.start();
-
-  // Track this source so stopAllSources(key) can stop it later
-  if (!activeSources.has(key)) {
-    activeSources.set(key, new Set());
-  }
-  activeSources.get(key).add(src);
-
-  src.onended = () => {
-    activeSources.get(key)?.delete(src);
-  };
 }
 
 // -----------------------
 // DOM Events
 // -----------------------
 document.addEventListener('DOMContentLoaded', () => {
-  // Global unlocker for AudioContext
-  const unlockAudio = () => {
-    if (!audioContext) {
-      initAudio();
-    } else if (audioContext.state === 'suspended') {
-      audioContext.resume();
-    }
-
-    // Once unlocked, remove these listeners so they don't run every time
-    window.removeEventListener('click', unlockAudio);
-    window.removeEventListener('keydown', unlockAudio);
-  };
-
-  window.addEventListener('click', unlockAudio);
-  window.addEventListener('keydown', unlockAudio);
 
   // Mode toggle
   const modeToggle = document.getElementById('modeToggle');
@@ -240,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bpmSlider.max = 155;
     bpmSlider.value = bpm;
     bpmValue.textContent = bpm;
-
+    
     bpmSlider.addEventListener('input', e => {
       bpm = Number(e.target.value);
       bpmValue.textContent = bpm;
@@ -262,86 +209,74 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.pad.playing').forEach(pad => {
       const category = pad.dataset.category;
       const index = Number(pad.dataset.index);
-      const key = `${category}-${index}`;
 
-      // Force stop for synth OR stop if holdMode is on for others
-      if (category === 'synth' || holdMode) {
-        playSample(category, index, 'stop');
-      }
-
+      if (holdMode) playSample(category, index, 'stop');
       pad.classList.remove('playing');
     });
   });
 
 
-  // Keyboard mapping
-  const keyMap = {
-    '1': { category: 'kick', index: 0 },
-    '2': { category: 'kick', index: 1 },
-    '3': { category: 'kick', index: 2 },
-    '4': { category: 'kick', index: 3 },
-    '5': { category: 'kick', index: 4 },
-    '6': { category: 'kick', index: 5 },
-    '7': { category: 'kick', index: 6 },
-    '8': { category: 'kick', index: 7 },
+// Keyboard mapping
+const keyMap = {
+  '1': { category: 'kick', index: 0 },
+  '2': { category: 'kick', index: 1 },
+  '3': { category: 'kick', index: 2 },
+  '4': { category: 'kick', index: 3 },
+  '5': { category: 'kick', index: 4 },
+  '6': { category: 'kick', index: 5 },
+  '7': { category: 'kick', index: 6 },
+  '8': { category: 'kick', index: 7 },
+  
+  'q': { category: 'hihat', index: 0 },
+  'w': { category: 'hihat', index: 1 },
+  'e': { category: 'hihat', index: 2 },
+  'r': { category: 'hihat', index: 3 },
+  't': { category: 'hihat', index: 4 },
+  'y': { category: 'hihat', index: 5 },
+  'u': { category: 'hihat', index: 6 },
+  'i': { category: 'hihat', index: 7 },
+  
+  'a': { category: 'synth', index: 0 },
+  's': { category: 'synth', index: 1 },
+  'd': { category: 'synth', index: 2 },
+  'f': { category: 'synth', index: 3 },
+  'g': { category: 'synth', index: 4 },
+  'h': { category: 'synth', index: 5 },
+  'j': { category: 'synth', index: 6 },
+  'k': { category: 'synth', index: 7 },
 
-    'q': { category: 'hihat', index: 0 },
-    'w': { category: 'hihat', index: 1 },
-    'e': { category: 'hihat', index: 2 },
-    'r': { category: 'hihat', index: 3 },
-    't': { category: 'hihat', index: 4 },
-    'y': { category: 'hihat', index: 5 },
-    'u': { category: 'hihat', index: 6 },
-    'i': { category: 'hihat', index: 7 },
+  'z': { category: 'clap', index: 0 },
+  'x': { category: 'clap', index: 1 },
+  'c': { category: 'clap', index: 2 },
+  'v': { category: 'clap', index: 3 },
+  'b': { category: 'clap', index: 4 },
+  'n': { category: 'clap', index: 5 },
+  'm': { category: 'clap', index: 6 },
+  ',': { category: 'clap', index: 7 }
+};
 
-    'a': { category: 'synth', index: 0 },
-    's': { category: 'synth', index: 1 },
-    'd': { category: 'synth', index: 2 },
-    'f': { category: 'synth', index: 3 },
-    'g': { category: 'synth', index: 4 },
-    'h': { category: 'synth', index: 5 },
-    'j': { category: 'synth', index: 6 },
-    'k': { category: 'synth', index: 7 },
+// Keyboard events
+document.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  
+  const mapping = keyMap[e.key.toLowerCase()];
+  if (!mapping || !samples[mapping.category]?.[mapping.index]) return;
+  
+  playSample(mapping.category, mapping.index, 'start');
+  const pad = document.querySelector(`[data-category="${mapping.category}"][data-index="${mapping.index}"]`);
+  if (pad) pad.classList.add('playing');
+});
 
-    'z': { category: 'clap', index: 0 },
-    'x': { category: 'clap', index: 1 },
-    'c': { category: 'clap', index: 2 },
-    'v': { category: 'clap', index: 3 },
-    'b': { category: 'clap', index: 4 },
-    'n': { category: 'clap', index: 5 },
-    'm': { category: 'clap', index: 6 },
-    ',': { category: 'clap', index: 7 }
-  };
-
-  // Keyboard events
-  document.addEventListener('keydown', e => {
-    if (e.repeat) return;
-
-    const mapping = keyMap[e.key.toLowerCase()];
-    if (!mapping || !samples[mapping.category]?.[mapping.index]) return;
-
-    playSample(mapping.category, mapping.index, 'start');
-    const pad = document.querySelector(`[data-category="${mapping.category}"][data-index="${mapping.index}"]`);
-    if (pad) pad.classList.add('playing');
-  });
-
-  document.addEventListener('keyup', e => {
-    const mapping = keyMap[e.key.toLowerCase()];
-    if (!mapping || !samples[mapping.category]?.[mapping.index]) return;
-
-    const category = mapping.category;
-    const index = mapping.index;
-
-    // Logic: Only send the 'stop' action if:
-    // 1. We are in Hold Mode (to stop the BPM repeat)
-    // 2. OR the category is 'synth' (to stop the Gated sound)
-    if (holdMode || category === 'synth') {
-      playSample(category, index, 'stop');
-    }
-
-    const pad = document.querySelector(`[data-category="${category}"][data-index="${index}"]`);
-    if (pad) pad.classList.remove('playing');
-  });
+document.addEventListener('keyup', e => {
+  if (!holdMode) return;
+  
+  const mapping = keyMap[e.key.toLowerCase()];
+  if (!mapping || !samples[mapping.category]?.[mapping.index]) return;
+  
+  playSample(mapping.category, mapping.index, 'stop');
+  const pad = document.querySelector(`[data-category="${mapping.category}"][data-index="${mapping.index}"]`);
+  if (pad) pad.classList.remove('playing');
+});
 
 
 
