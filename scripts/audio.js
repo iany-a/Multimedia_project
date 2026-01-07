@@ -103,43 +103,13 @@ function startBpmRetrigger(category, index) {
   retrigger(); // start immediately
 }
 
-// Stop BPM retrigger for a pad
+// Stop BPM retrigger
 function stopBpmRetrigger(key) {
   if (retriggerTimers.has(key)) {
     clearTimeout(retriggerTimers.get(key).timerId);
     retriggerTimers.delete(key);
   }
   stopAllSources(key); // Also stop all sounds
-}
-
-// Play one-shot sample
-function playOneShot(category, index) {
-  const buffer = samples[category]?.[index];
-  if (!buffer) return;
-
-  const key = `${category}-${index}`;
-  stopAllSources(key); // Stop any existing sounds first
-
-  const src = audioContext.createBufferSource();
-  src.buffer = buffer;
-  src.connect(audioContext.destination);
-  src.start();
-
-  // Track this source (cleanup after it ends)
-  const duration = buffer.duration * 1000; // Convert to ms
-  setTimeout(() => {
-    const pad = document.querySelector(`[data-category="${category}"][data-index="${index}"]`);
-    if (pad) pad.classList.remove('playing');
-  }, Math.min(duration, 300)); // Cap at 300ms max for visual feedback
-
-
-  // Cleanup when source ends
-  src.onended = () => {
-    activeSources.get(key)?.delete(src);
-    if (activeSources.get(key)?.size === 0) {
-      activeSources.delete(key);
-    }
-  };
 }
 
 // Main play handler
@@ -173,6 +143,36 @@ function playSample(category, index, action) {
   } else {
     if (action === 'start') playOneShot(category, index);
   }
+}
+
+// Play one-shot sample
+function playOneShot(category, index) {
+  const buffer = samples[category]?.[index];
+  if (!buffer) return;
+
+  const key = `${category}-${index}`;
+  stopAllSources(key); // Stop any existing sounds first
+
+  const src = audioContext.createBufferSource();
+  src.buffer = buffer;
+  src.connect(audioContext.destination);
+  src.start();
+
+  // Track this source (cleanup after it ends)
+  const duration = buffer.duration * 1000; // Convert to ms
+  setTimeout(() => {
+    const pad = document.querySelector(`[data-category="${category}"][data-index="${index}"]`);
+    if (pad) pad.classList.remove('playing');
+  }, Math.min(duration, 300)); // Cap at 300ms max for visual feedback
+
+
+  // Cleanup when source ends
+  src.onended = () => {
+    activeSources.get(key)?.delete(src);
+    if (activeSources.get(key)?.size === 0) {
+      activeSources.delete(key);
+    }
+  };
 }
 
 function playGated(category, index) {
@@ -237,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const bpmValue = document.getElementById('bpmValue');
   if (bpmSlider && bpmValue) {
     bpmSlider.min = 130;
-    bpmSlider.max = 155;
+    bpmSlider.max = 175;
     bpmSlider.value = bpm;
     bpmValue.textContent = bpm;
 
@@ -342,10 +342,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const pad = document.querySelector(`[data-category="${category}"][data-index="${index}"]`);
     if (pad) pad.classList.remove('playing');
   });
-
-
-
-
 
 
 });
